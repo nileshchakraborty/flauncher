@@ -16,9 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flauncher/actions.dart';
 import 'package:flauncher/providers/apps_service.dart';
 import 'package:flauncher/providers/settings_service.dart';
@@ -37,44 +34,24 @@ import 'flauncher_channel.dart';
 
 class FLauncherApp extends StatelessWidget {
   final SharedPreferences _sharedPreferences;
-  final FirebaseCrashlytics _firebaseCrashlytics;
-  final FirebaseAnalytics _firebaseAnalytics;
   final ImagePicker _imagePicker;
   final FLauncherChannel _fLauncherChannel;
   final FLauncherDatabase _fLauncherDatabase;
   final UnsplashService _unsplashService;
-  final FirebaseRemoteConfig _firebaseRemoteConfig;
-
-  static const MaterialColor _swatch = MaterialColor(0xFF011526, <int, Color>{
-    50: Color(0xFF36A0FA),
-    100: Color(0xFF067BDE),
-    200: Color(0xFF045CA7),
-    300: Color(0xFF033662),
-    400: Color(0xFF022544),
-    500: Color(0xFF011526),
-    600: Color(0xFF000508),
-    700: Color(0xFF000000),
-    800: Color(0xFF000000),
-    900: Color(0xFF000000),
-  });
 
   FLauncherApp(
     this._sharedPreferences,
-    this._firebaseCrashlytics,
-    this._firebaseAnalytics,
     this._imagePicker,
     this._fLauncherChannel,
     this._fLauncherDatabase,
     this._unsplashService,
-    this._firebaseRemoteConfig,
   );
 
   @override
   Widget build(BuildContext context) => MultiProvider(
         providers: [
           ChangeNotifierProvider(
-              create: (_) =>
-                  SettingsService(_sharedPreferences, _firebaseCrashlytics, _firebaseAnalytics, _firebaseRemoteConfig),
+              create: (_) => SettingsService(_sharedPreferences),
               lazy: false),
           ChangeNotifierProvider(create: (_) => AppsService(_fLauncherChannel, _fLauncherDatabase)),
           ChangeNotifierProxyProvider<SettingsService, WallpaperService>(
@@ -97,37 +74,59 @@ class FLauncherApp extends StatelessWidget {
           },
           title: 'FLauncher',
           theme: ThemeData(
+            useMaterial3: true,
             brightness: Brightness.dark,
-            primarySwatch: _swatch,
-            // ignore: deprecated_member_use
-            accentColor: _swatch[200],
-            cardColor: _swatch[300],
-            canvasColor: _swatch[300],
-            dialogBackgroundColor: _swatch[400],
-            // ignore: deprecated_member_use
-            backgroundColor: _swatch[400],
-            scaffoldBackgroundColor: _swatch[400],
-            textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Colors.white)),
-            appBarTheme: AppBarTheme(elevation: 0, backgroundColor: Colors.transparent),
-            typography: Typography.material2018(),
-            inputDecorationTheme: InputDecorationTheme(
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
-              labelStyle: Typography.material2018().white.bodyMedium,
+            colorScheme: ColorScheme.fromSeed(
+              brightness: Brightness.dark,
+              seedColor: const Color(0xFF8AB4F8),
+              surface: const Color(0xFF0E1117),
+              onSurface: const Color(0xFFF1F3F4),
+              surfaceContainerHighest: const Color(0xFF1E222D),
+              primary: const Color(0xFF8AB4F8),
+              secondary: const Color(0xFF80CBC4),
             ),
-            textSelectionTheme: TextSelectionThemeData(
-              cursorColor: Colors.white,
-              selectionColor: _swatch[200],
-              selectionHandleColor: _swatch[200],
+            scaffoldBackgroundColor: const Color(0xFF0E1117),
+            cardTheme: CardThemeData(
+              color: const Color(0xFF1A1E29),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            dialogTheme: DialogThemeData(
+              backgroundColor: const Color(0xFF151821).withValues(alpha: 0.92),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF8AB4F8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            appBarTheme: const AppBarTheme(
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF8AB4F8), width: 2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+              ),
+              labelStyle: const TextStyle(color: Color(0xFF9AA0A6)),
             ),
           ),
           home: Builder(
-            builder: (context) => WillPopScope(
-              onWillPop: () async {
+            builder: (context) => PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) async {
+                if (didPop) return;
                 final shouldPop = await shouldPopScope(context);
-                if (!shouldPop) {
+                if (!shouldPop && context.mounted) {
                   context.read<AppsService>().startAmbientMode();
                 }
-                return shouldPop;
               },
               child: Actions(actions: {BackIntent: BackAction(context, systemNavigator: true)}, child: FLauncher()),
             ),

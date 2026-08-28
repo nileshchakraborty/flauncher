@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import 'dart:ui';
 import 'package:flauncher/actions.dart';
 import 'package:flutter/material.dart';
 
@@ -25,7 +26,7 @@ class RightPanelDialog extends StatelessWidget {
 
   RightPanelDialog({
     required this.child,
-    this.width = 250,
+    this.width = 280,
   });
 
   @override
@@ -34,12 +35,23 @@ class RightPanelDialog extends StatelessWidget {
         insetPadding: EdgeInsets.zero,
         child: Align(
           alignment: Alignment.centerRight,
-          child: Container(
-            padding: EdgeInsets.all(16),
-            // ignore: deprecated_member_use
-            color: Theme.of(context).backgroundColor,
-            width: width,
-            child: Actions(actions: {BackIntent: BackAction(context)}, child: child),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141722).withValues(alpha: 0.88),
+                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                  border: const Border(
+                    left: BorderSide(color: Color(0x33FFFFFF), width: 1.5),
+                  ),
+                ),
+                width: width,
+                child: Actions(actions: {BackIntent: BackAction(context)}, child: child),
+              ),
+            ),
           ),
         ),
       );

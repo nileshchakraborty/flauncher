@@ -42,13 +42,16 @@ class AppsGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.only(left: 16),
+            padding: const EdgeInsets.only(left: 18, bottom: 6, top: 4),
             child: Text(
               category.name,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge!
-                  .copyWith(shadows: [Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 8)]),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFF1F3F4),
+                letterSpacing: 0.3,
+                shadows: [Shadow(color: Colors.black87, offset: Offset(1, 1), blurRadius: 8)],
+              ),
             ),
           ),
           applications.isNotEmpty

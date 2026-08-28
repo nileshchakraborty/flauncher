@@ -20,10 +20,7 @@ import 'dart:async';
 
 import 'package:flauncher/database.dart';
 import 'package:flauncher/providers/apps_service.dart';
-import 'package:flauncher/providers/settings_service.dart';
-import 'package:flauncher/providers/ticker_model.dart';
 import 'package:flauncher/widgets/application_info_panel.dart';
-import 'package:flauncher/widgets/color_helpers.dart';
 import 'package:flauncher/widgets/focus_keyboard_listener.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
@@ -52,41 +49,9 @@ class AppCard extends StatefulWidget {
   _AppCardState createState() => _AppCardState();
 }
 
-class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
+class _AppCardState extends State<AppCard> {
   bool _moving = false;
   MemoryImage? _imageProvider;
-  late final AnimationController _animation = AnimationController(
-    vsync: Provider.of<TickerModel>(context, listen: false).tickerProvider ?? this,
-    duration: Duration(
-      milliseconds: 800,
-    ),
-  );
-  Color _lastBorderColor = Colors.white;
-
-  @override
-  void initState() {
-    super.initState();
-    _animation.addStatusListener((animationStatus) {
-      switch (animationStatus) {
-        case AnimationStatus.completed:
-          _animation.reverse();
-          break;
-        case AnimationStatus.dismissed:
-          _animation.forward();
-          break;
-        case AnimationStatus.forward:
-        case AnimationStatus.reverse:
-          // nothing to do
-          break;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _animation.dispose();
-    super.dispose();
-  }
 
   ImageProvider _cachedMemoryImage(Uint8List bytes) {
     if (!listEquals(bytes, _imageProvider?.bytes)) {
@@ -99,96 +64,154 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) => FocusKeyboardListener(
         onPressed: (key) => _onPressed(context, key),
         onLongPress: (key) => _onLongPress(context, key),
-        builder: (context) => AspectRatio(
-          aspectRatio: 16 / 9,
-          child: AnimatedContainer(
-            duration: Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            transformAlignment: Alignment.center,
-            transform: _scaleTransform(context),
-            child: Material(
-              borderRadius: BorderRadius.circular(8),
-              clipBehavior: Clip.antiAlias,
-              elevation: Focus.of(context).hasFocus ? 16 : 0,
-              shadowColor: Colors.black,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  InkWell(
-                    autofocus: widget.autofocus,
-                    focusColor: Colors.transparent,
-                    onTap: () => _onPressed(context, null),
-                    onLongPress: () => _onLongPress(context, null),
-                    child: widget.application.banner != null
-                        ? Ink.image(image: _cachedMemoryImage(widget.application.banner!), fit: BoxFit.cover)
-                        : Padding(
-                            padding: EdgeInsets.all(8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Ink.image(
-                                    image: _cachedMemoryImage(widget.application.icon!),
-                                    height: double.infinity,
-                                  ),
-                                ),
-                                Flexible(
-                                  flex: 3,
-                                  child: Padding(
-                                    padding: EdgeInsets.only(left: 8),
-                                    child: Text(
-                                      widget.application.name,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 3,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                  if (_moving) ..._arrows(),
-                  IgnorePointer(
-                    child: AnimatedOpacity(
-                      duration: Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      opacity: Focus.of(context).hasFocus ? 0 : 0.10,
-                      child: Container(color: Colors.black),
+        builder: (context) {
+          final hasFocus = Focus.of(context).hasFocus;
+          return AspectRatio(
+            aspectRatio: 16 / 9,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              transformAlignment: Alignment.center,
+              transform: _scaleTransform(context),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: hasFocus
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF8AB4F8).withValues(alpha: 0.45),
+                          blurRadius: 22,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+              ),
+              child: Material(
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                color: const Color(0xFF181C26),
+                elevation: 0,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    InkWell(
+                      autofocus: widget.autofocus,
+                      focusColor: Colors.transparent,
+                      onTap: () => _onPressed(context, null),
+                      onLongPress: () => _onLongPress(context, null),
+                      child: widget.application.banner != null
+                          ? Ink.image(image: _cachedMemoryImage(widget.application.banner!), fit: BoxFit.cover)
+                          : _nonTvAppLayout(context),
                     ),
-                  ),
-                  Selector<SettingsService, bool>(
-                    selector: (_, settingsService) => settingsService.appHighlightAnimationEnabled,
-                    builder: (context, appHighlightAnimationEnabled, __) {
-                      if (appHighlightAnimationEnabled) {
-                        _animation.forward();
-                        return AnimatedBuilder(
-                          animation: _animation,
-                          builder: (context, child) => IgnorePointer(
-                            child: AnimatedContainer(
-                              duration: Duration(milliseconds: 200),
-                              curve: Curves.easeInOut,
-                              decoration: BoxDecoration(
-                                border: Focus.of(context).hasFocus
-                                    ? Border.all(
-                                        color: _lastBorderColor =
-                                            computeBorderColor(_animation.value, _lastBorderColor),
-                                        width: 3)
-                                    : null,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      _animation.stop();
-                      return SizedBox();
-                    },
-                  ),
-                ],
+                    if (_moving) ..._arrows(),
+                    IgnorePointer(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        opacity: hasFocus ? 0 : 0.08,
+                        child: Container(color: Colors.black),
+                      ),
+                    ),
+                    // High-definition focus border
+                    IgnorePointer(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          border: hasFocus
+                              ? Border.all(color: Colors.white.withValues(alpha: 0.95), width: 2.5)
+                              : null,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          );
+        },
+      );
+
+  Widget _nonTvAppLayout(BuildContext context) => Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2A3040), Color(0xFF141722)],
           ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: widget.application.icon != null
+                    ? Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Image(
+                          image: _cachedMemoryImage(widget.application.icon!),
+                          fit: BoxFit.contain,
+                        ),
+                      )
+                    : const Icon(Icons.android_rounded, size: 44, color: Color(0xFF8AB4F8)),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.75),
+                      Colors.black.withValues(alpha: 0.95),
+                    ],
+                  ),
+                ),
+                child: Text(
+                  widget.application.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFF1F3F4),
+                    letterSpacing: 0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ),
+          ],
         ),
       );
 
@@ -196,7 +219,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
     final scale = _moving
         ? 1.0
         : Focus.of(context).hasFocus
-            ? 1.1
+            ? 1.07
             : 1.0;
     return Matrix4.diagonal3Values(scale, scale, 1.0);
   }
@@ -211,15 +234,23 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
   Widget _arrow(Alignment alignment, IconData icon) => Align(
         alignment: alignment,
         child: Padding(
-          padding: EdgeInsets.all(4),
+          padding: const EdgeInsets.all(6),
           child: Container(
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Theme.of(context).primaryColor.withOpacity(0.8),
+              color: const Color(0xFF8AB4F8).withValues(alpha: 0.9),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                ),
+              ],
             ),
             child: Icon(
               icon,
               size: 16,
+              color: const Color(0xFF0E1117),
             ),
           ),
         ),

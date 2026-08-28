@@ -26,8 +26,10 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.UserHandle
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -38,17 +40,60 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.io.Serializable
 
+private const val TAG = "FLauncherBoot"
 private const val METHOD_CHANNEL = "me.efesser.flauncher/method"
 private const val EVENT_CHANNEL = "me.efesser.flauncher/event"
 
 class MainActivity : FlutterActivity() {
     val launcherAppsCallbacks = ArrayList<LauncherApps.Callback>()
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        Log.i(TAG, "MainActivity.onCreate called: intent=${intent?.action}, categories=${intent?.categories}, data=${intent?.data}")
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onStart() {
+        Log.i(TAG, "MainActivity.onStart called")
+        super.onStart()
+    }
+
+    override fun onResume() {
+        Log.i(TAG, "MainActivity.onResume called")
+        super.onResume()
+    }
+
+    override fun onPause() {
+        Log.i(TAG, "MainActivity.onPause called")
+        super.onPause()
+    }
+
+    override fun onStop() {
+        Log.i(TAG, "MainActivity.onStop called")
+        super.onStop()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        Log.i(TAG, "MainActivity.onNewIntent: action=${intent.action}, categories=${intent.categories}")
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
+        Log.i(TAG, "configureFlutterEngine called - setting up Method and Event channels")
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
+            Log.d(TAG, "MethodChannel call: ${call.method}")
             when (call.method) {
-                "getApplications" -> result.success(getApplications())
+                "getApplications" -> {
+                    try {
+                        val apps = getApplications()
+                        Log.i(TAG, "getApplications returning ${apps.size} apps")
+                        result.success(apps)
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Error in getApplications", e)
+                        result.error("APPS_ERROR", e.message, null)
+                    }
+                }
                 "applicationExists" -> result.success(applicationExists(call.arguments as String))
                 "launchApp" -> result.success(launchApp(call.arguments as String))
                 "openSettings" -> result.success(openSettings())
@@ -57,7 +102,10 @@ class MainActivity : FlutterActivity() {
                 "isDefaultLauncher" -> result.success(isDefaultLauncher())
                 "checkForGetContentAvailability" -> result.success(checkForGetContentAvailability())
                 "startAmbientMode" -> result.success(startAmbientMode())
-                else -> throw IllegalArgumentException()
+                else -> {
+                    Log.w(TAG, "Unknown method: ${call.method}")
+                    throw IllegalArgumentException()
+                }
             }
         }
 
@@ -65,29 +113,36 @@ class MainActivity : FlutterActivity() {
             lateinit var launcherAppsCallback: LauncherApps.Callback
             val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
             override fun onListen(arguments: Any?, events: EventSink) {
+                Log.i(TAG, "EventChannel stream started")
                 launcherAppsCallback = object : LauncherApps.Callback() {
                     override fun onPackageRemoved(packageName: String, user: UserHandle) {
+                        Log.d(TAG, "Package removed: $packageName")
                         events.success(mapOf("action" to "PACKAGE_REMOVED", "packageName" to packageName))
                     }
 
                     override fun onPackageAdded(packageName: String, user: UserHandle) {
+                        Log.d(TAG, "Package added: $packageName")
                         getApplication(packageName)
                             ?.let { events.success(mapOf("action" to "PACKAGE_ADDED", "activitiyInfo" to it)) }
                     }
 
                     override fun onPackageChanged(packageName: String, user: UserHandle) {
+                        Log.d(TAG, "Package changed: $packageName")
                         getApplication(packageName)
                             ?.let { events.success(mapOf("action" to "PACKAGE_CHANGED", "activitiyInfo" to it)) }
                     }
 
                     override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+                        Log.d(TAG, "Packages available: ${packageNames.joinToString()}")
                         val applications = packageNames.map(::getApplication)
                         if (applications.isNotEmpty()) {
                             events.success(mapOf("action" to "PACKAGES_AVAILABLE", "activitiesInfo" to applications))
                         }
                     }
 
-                    override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {}
+                    override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+                        Log.d(TAG, "Packages unavailable: ${packageNames.joinToString()}")
+                    }
                 }
 
                 launcherAppsCallbacks.add(launcherAppsCallback)
@@ -95,6 +150,7 @@ class MainActivity : FlutterActivity() {
             }
 
             override fun onCancel(arguments: Any?) {
+                Log.i(TAG, "EventChannel stream cancelled")
                 launcherApps.unregisterCallback(launcherAppsCallback)
                 launcherAppsCallbacks.remove(launcherAppsCallback)
             }
@@ -102,6 +158,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        Log.i(TAG, "MainActivity.onDestroy called")
         val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
         launcherAppsCallbacks.forEach(launcherApps::unregisterCallback)
         super.onDestroy()

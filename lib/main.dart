@@ -17,12 +17,7 @@
  */
 
 import 'dart:async';
-import 'dart:isolate';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flauncher/database.dart';
 import 'package:flauncher/flauncher_channel.dart';
 import 'package:flauncher/unsplash_service.dart';
@@ -36,70 +31,38 @@ import 'flauncher_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Paint.enableDithering = true;
-
-  await Firebase.initializeApp();
-  final firebaseCrashlytics = FirebaseCrashlytics.instance;
-
-  FlutterError.onError = firebaseCrashlytics.recordFlutterError;
-  Isolate.current.addErrorListener(RawReceivePort((List<dynamic> pair) async => await firebaseCrashlytics.recordError(
-        pair.first,
-        pair.last as StackTrace,
-      )).sendPort);
+  debugPrint("[FLauncher Boot] WidgetsFlutterBinding initialized");
 
   runZonedGuarded<void>(() async {
-    final firebaseAnalytics = FirebaseAnalytics.instance;
+    debugPrint("[FLauncher Boot] Starting app initialization sequence");
     final sharedPreferences = await SharedPreferences.getInstance();
+    debugPrint("[FLauncher Boot] SharedPreferences loaded");
     final imagePicker = ImagePicker();
     final fLauncherChannel = FLauncherChannel();
-    final remoteConfig = await _initFirebaseRemoteConfig();
     final fLauncherDatabase = FLauncherDatabase(connect());
+    debugPrint("[FLauncher Boot] Database connected");
     final unsplashService = UnsplashService(
       UnsplashClient(
         settings: ClientSettings(
           debug: kDebugMode,
           credentials: AppCredentials(
-            accessKey: remoteConfig.getString("unsplash_access_key"),
-            secretKey: remoteConfig.getString("unsplash_secret_key"),
+            accessKey: "",
+            secretKey: "",
           ),
         ),
       ),
     );
+    debugPrint("[FLauncher Boot] Launching FLauncherApp widget");
     runApp(
       FLauncherApp(
         sharedPreferences,
-        firebaseCrashlytics,
-        firebaseAnalytics,
         imagePicker,
         fLauncherChannel,
         fLauncherDatabase,
         unsplashService,
-        remoteConfig,
       ),
     );
-  }, firebaseCrashlytics.recordError);
-}
-
-Future<FirebaseRemoteConfig> _initFirebaseRemoteConfig() async {
-  final remoteConfig = FirebaseRemoteConfig.instance;
-  await remoteConfig.setDefaults({"unsplash_enabled": false, "unsplash_access_key": "", "unsplash_secret_key": ""});
-  await remoteConfig.setConfigSettings(
-    RemoteConfigSettings(
-      fetchTimeout: Duration(minutes: 1),
-      minimumFetchInterval: kReleaseMode ? Duration(hours: 6) : Duration.zero,
-    ),
-  );
-  await remoteConfig.ensureInitialized().catchError((error, stackTrace) async {
-    if (!(error is FormatException && error.message == "Invalid envelope")) {
-      await FirebaseCrashlytics.instance.recordError(error, stackTrace);
-    }
+  }, (error, stackTrace) {
+    debugPrint("[FLauncher Boot Error] Uncaught error: $error\n$stackTrace");
   });
-  remoteConfig.fetchAndActivate().catchError((error, stackTrace) async {
-    if (!(error is FormatException && error.message == "Invalid envelope")) {
-      await FirebaseCrashlytics.instance.recordError(error, stackTrace);
-    }
-    return false;
-  });
-
-  return remoteConfig;
 }

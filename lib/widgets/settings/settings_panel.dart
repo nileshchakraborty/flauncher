@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flauncher/widgets/right_panel_dialog.dart';
 import 'package:flauncher/widgets/settings/applications_panel_page.dart';
 import 'package:flauncher/widgets/settings/categories_panel_page.dart';
@@ -41,8 +40,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
-  Widget build(BuildContext context) => WillPopScope(
-        onWillPop: () async => !await _navigatorKey.currentState!.maybePop(),
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          final navigator = _navigatorKey.currentState;
+          if (navigator != null && await navigator.maybePop()) {
+            return;
+          }
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: RightPanelDialog(
@@ -50,7 +59,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Navigator(
               key: _navigatorKey,
               initialRoute: widget.initialRoute ?? SettingsPanelPage.routeName,
-              observers: [if (kReleaseMode) FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance)],
               onGenerateRoute: (settings) {
                 switch (settings.name) {
                   case SettingsPanelPage.routeName:
